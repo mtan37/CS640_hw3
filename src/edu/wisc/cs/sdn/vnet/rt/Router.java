@@ -48,11 +48,20 @@ public class Router extends Device
 			System.exit(1);
 		}
 
-		System.out.println("Loaded static route table");
+		System.out.println("Loaded route table");
 		System.out.println("-------------------------------------------------");
 		System.out.print(this.routeTable.toString());
 		System.out.println("-------------------------------------------------");
 	}
+
+    /**
+     * Start RIP v2 protocol in a new thread
+     */
+    public void startRIP(){
+        //TODO
+        //TODO create a blank route table, and load the route table 
+        //TODO start RIP protocol in new thread 
+    }
 
 	/**
 	 * Load a new ARP cache from a file.
@@ -84,7 +93,6 @@ public class Router extends Device
 				etherPacket.toString().replace("\n", "\n\t"));
 
 		/********************************************************************/
-		/* TODO: Handle packets                                             */
 
 		switch(etherPacket.getEtherType())
 		{
