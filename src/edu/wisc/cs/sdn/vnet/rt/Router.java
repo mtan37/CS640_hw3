@@ -6,6 +6,7 @@ import edu.wisc.cs.sdn.vnet.Iface;
 
 import net.floodlightcontroller.packet.Ethernet;
 import net.floodlightcontroller.packet.IPv4;
+import net.floddlightcontroller.packet.RIPv2;
 
 /**
  * @author Aaron Gember-Jacobson and Anubhavnidhi Abhashkumar
@@ -55,12 +56,16 @@ public class Router extends Device
 	}
 
     /**
-     * Start RIP v2 protocol in a new thread
+     * Start RIP v2 protocol
      */
-    public void startRIP(){
-        //TODO
-        //TODO create a blank route table, and load the route table 
-        //TODO start RIP protocol in new thread 
+    public static void startRIP(){
+        // TODO send RIP request to all interfaces
+        while(true){
+            Thread.sleep(10000);// wait for 10 seconds
+            timeCount++;
+            // TODO check and update route entires. Expire outdated route entries(30s)
+            // TODO send unsolicited RIP response to all interfaces
+        }  
     }
 
 	/**
@@ -99,11 +104,15 @@ public class Router extends Device
 		case Ethernet.TYPE_IPv4:
 			this.handleIpPacket(etherPacket, inIface);
 			break;
-		// Ignore all other packet types, for now
-		}
+		//TODO handle incoming UDP RIP request
+        }
 
 		/********************************************************************/
 	}
+    
+    private void handleRipPacket(){
+        //TODO
+    }
 
 	private void handleIpPacket(Ethernet etherPacket, Iface inIface)
 	{
