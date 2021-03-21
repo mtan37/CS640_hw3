@@ -6,7 +6,8 @@ import edu.wisc.cs.sdn.vnet.Iface;
 
 import net.floodlightcontroller.packet.Ethernet;
 import net.floodlightcontroller.packet.IPv4;
-import net.floddlightcontroller.packet.RIPv2;
+import net.floodlightcontroller.packet.RIPv2;
+import net.floodlightcontroller.packet.UDP;
 
 /**
  * @author Aaron Gember-Jacobson and Anubhavnidhi Abhashkumar
@@ -61,8 +62,11 @@ public class Router extends Device
     public static void startRIP(){
         // TODO send RIP request to all interfaces
         while(true){
-            Thread.sleep(10000);// wait for 10 seconds
-            timeCount++;
+        	try{
+        		Thread.sleep(10000);// wait for 10 seconds
+        	} catch(Exception e) {
+        		
+        	}
             // TODO check and update route entires. Expire outdated route entries(30s)
             // TODO send unsolicited RIP response to all interfaces
         }  
@@ -102,16 +106,43 @@ public class Router extends Device
 		switch(etherPacket.getEtherType())
 		{
 		case Ethernet.TYPE_IPv4:
+			if(etherPacket.getDestinationMAC().equals(inIface)) {
+				IPv4 ipPacket = (IPv4)etherPacket.getPayload();
+				int dstAddr = ipPacket.getDestinationAddress();
+				if(dstAddr == IPv4.toIPv4Address("224.0.0.9") && ipPacket.getProtocol() == IPv4.PROTOCOL_UDP) {
+					//This is a RIP packet
+					this.handleRipPacket(etherPacket, inIface);
+				}
+			}
+			//TODO handle incoming UDP RIP request
 			this.handleIpPacket(etherPacket, inIface);
 			break;
-		//TODO handle incoming UDP RIP request
         }
 
 		/********************************************************************/
 	}
     
-    private void handleRipPacket(){
-        //TODO
+    private void handleRipPacket(Ethernet etherPacket, Iface inIface){
+    	// Get IP header
+		IPv4 ipPacket = (IPv4)etherPacket.getPayload();
+		UDP udpPacket = (UDP)ipPacket.getPayload();
+		System.out.println("Handle RIP packet");
+		
+		// Verify checksum
+		short origCksum = udpPacket.getChecksum();
+		udpPacket.resetChecksum();
+		byte[] serialized = udpPacket.serialize();
+		udpPacket.deserialize(serialized, 0, serialized.length);
+		short calcCksum = udpPacket.getChecksum();
+		if (origCksum != calcCksum)
+		{ return; }
+		
+		RIPv2 ripPacketPv2 = (RIPv2)udpPacket.getPayload();
+		if(ripPacketPv2.getCommand() == RIPv2.COMMAND_REQUEST){
+			//TODO Sent rip entries
+		} else if(ripPacketPv2.getCommand() == RIPv2.COMMAND_RESPONSE) {
+			//TODO Update rip table
+		}
     }
 
 	private void handleIpPacket(Ethernet etherPacket, Iface inIface)
@@ -140,7 +171,7 @@ public class Router extends Device
 
 		// Reset checksum now that TTL is decremented
 		ipPacket.resetChecksum();
-
+		
 		// Check if packet is destined for one of router's interfaces
 		for (Iface iface : this.interfaces.values())
 		{

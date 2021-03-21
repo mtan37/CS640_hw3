@@ -89,12 +89,14 @@ public class Main
 			if (routeTableFile != null)
 			{ ((Router)dev).loadRouteTable(routeTableFile); }
 		    else{ 
+		    	/*
                 Thread ripThread = new Thread(){
                 
                     ((Router)dev).startRIP();
                 
                 }
                 ripThread.start();
+                */
             }	
 			// Read static ACP cache
 			if (arpCacheFile != null)
