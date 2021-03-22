@@ -106,7 +106,14 @@ public class RipProtocol implements Runnable
         		
         		for (Iface iface : interfaces) {
         			// send unsolicited RIP response to all interfaces
-            		rt.sendPacket(createRipPacket(iface, BROADCAST_MAC, MULTICAST_RIP_IP, RIPv2.COMMAND_RESPONSE), iface);
+        			Ethernet packet = createRipPacket(iface, BROADCAST_MAC, MULTICAST_RIP_IP, RIPv2.COMMAND_RESPONSE);
+        			RIPv2 ripPacket = (RIPv2) packet.getPayload().getPayload().getPayload();
+        			ArrayList<RIPv2Entry> cloneList = new ArrayList<RIPv2Entry>();
+        			for (RIPv2Entry i: entries) {
+        				cloneList.add(i);
+        			}
+        			ripPacket.setEntries(cloneList);
+            		rt.sendPacket(packet, iface);
             	}
         		
         	}
