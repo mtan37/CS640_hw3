@@ -19,6 +19,8 @@ public class Router extends Device
 
 	/** ARP cache for the router */
 	private ArpCache arpCache;
+	
+	private RipProtocol ripP;
 
 	/**
 	 * Creates a router for a specific host.
@@ -37,6 +39,10 @@ public class Router extends Device
 	public RouteTable getRouteTable()
 	{ return this.routeTable; }
 
+	public void setRipProtocl(RipProtocol ripP) {
+		this.ripP = ripP;
+	}
+	
 	/**
 	 * Load a new routing table from a file.
 	 * @param routeTableFile the name of the file containing the routing table
@@ -55,22 +61,6 @@ public class Router extends Device
 		System.out.print(this.routeTable.toString());
 		System.out.println("-------------------------------------------------");
 	}
-
-    /**
-     * Start RIP v2 protocol
-     */
-    public static void startRIP(){
-        // TODO send RIP request to all interfaces
-        while(true){
-        	try{
-        		Thread.sleep(10000);// wait for 10 seconds
-        	} catch(Exception e) {
-        		
-        	}
-            // TODO check and update route entires. Expire outdated route entries(30s)
-            // TODO send unsolicited RIP response to all interfaces
-        }  
-    }
 
 	/**
 	 * Load a new ARP cache from a file.
