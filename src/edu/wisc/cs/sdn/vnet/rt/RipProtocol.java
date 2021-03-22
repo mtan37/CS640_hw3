@@ -94,6 +94,8 @@ public class RipProtocol implements Runnable
      * @param r the RIP entry to be added
      */
     public void addRIPEntry(RIPv2Entry r) {
+    	//TODO More robust contains check
+    	//TODO Add to route table?
     	synchronized (RIP_ENTRIES_LOCK) {
     		if(entries.contains(r)) {
     			int rIndex = entries.indexOf(r);

@@ -97,14 +97,6 @@ public class Router extends Device
 		switch(etherPacket.getEtherType())
 		{
 		case Ethernet.TYPE_IPv4:
-			if(etherPacket.getDestinationMAC().equals(RipProtocol.BROADCAST_MAC)) {
-				IPv4 ipPacket = (IPv4)etherPacket.getPayload();
-				int dstAddr = ipPacket.getDestinationAddress();
-				if(dstAddr == RipProtocol.MULTICAST_RIP_IP && ipPacket.getProtocol() == IPv4.PROTOCOL_UDP) {
-					//This is a RIP packet
-					this.handleRipPacket(etherPacket, inIface);
-				}
-			}
 			this.handleIpPacket(etherPacket, inIface);
 			break;
         }
@@ -166,6 +158,17 @@ public class Router extends Device
 		if (0 == ipPacket.getTtl())
 		{ return; }
 
+		
+		if(ipPacket.getProtocol() == IPv4.PROTOCOL_UDP) {
+			UDP udpPacket = (UDP) ipPacket.getPayload();
+			if(udpPacket.getDestinationPort() == UDP.RIP_PORT && udpPacket.getSourcePort() == UDP.RIP_PORT) {
+				//This is a RIP packet
+				this.handleRipPacket(etherPacket, inIface);
+				return;
+			}
+			
+		}
+		
 		// Reset checksum now that TTL is decremented
 		ipPacket.resetChecksum();
 		
