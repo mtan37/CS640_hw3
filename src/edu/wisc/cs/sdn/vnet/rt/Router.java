@@ -6,6 +6,8 @@ import edu.wisc.cs.sdn.vnet.Iface;
 
 import net.floodlightcontroller.packet.Ethernet;
 import net.floodlightcontroller.packet.IPv4;
+import net.floodlightcontroller.packet.RIPv2;
+import net.floodlightcontroller.packet.UDP;
 
 /**
  * @author Aaron Gember-Jacobson and Anubhavnidhi Abhashkumar
@@ -17,6 +19,8 @@ public class Router extends Device
 
 	/** ARP cache for the router */
 	private ArpCache arpCache;
+	
+	private RipProtocol ripP;
 
 	/**
 	 * Creates a router for a specific host.
@@ -35,6 +39,10 @@ public class Router extends Device
 	public RouteTable getRouteTable()
 	{ return this.routeTable; }
 
+	public void setRipProtocl(RipProtocol ripP) {
+		this.ripP = ripP;
+	}
+	
 	/**
 	 * Load a new routing table from a file.
 	 * @param routeTableFile the name of the file containing the routing table
@@ -48,7 +56,7 @@ public class Router extends Device
 			System.exit(1);
 		}
 
-		System.out.println("Loaded static route table");
+		System.out.println("Loaded route table");
 		System.out.println("-------------------------------------------------");
 		System.out.print(this.routeTable.toString());
 		System.out.println("-------------------------------------------------");
@@ -84,18 +92,48 @@ public class Router extends Device
 				etherPacket.toString().replace("\n", "\n\t"));
 
 		/********************************************************************/
-		/* TODO: Handle packets                                             */
 
 		switch(etherPacket.getEtherType())
 		{
 		case Ethernet.TYPE_IPv4:
+			if(etherPacket.getDestinationMAC().equals(inIface)) {
+				IPv4 ipPacket = (IPv4)etherPacket.getPayload();
+				int dstAddr = ipPacket.getDestinationAddress();
+				if(dstAddr == IPv4.toIPv4Address("224.0.0.9") && ipPacket.getProtocol() == IPv4.PROTOCOL_UDP) {
+					//This is a RIP packet
+					this.handleRipPacket(etherPacket, inIface);
+				}
+			}
+			//TODO handle incoming UDP RIP request
 			this.handleIpPacket(etherPacket, inIface);
 			break;
-		// Ignore all other packet types, for now
-		}
+        }
 
 		/********************************************************************/
 	}
+    
+    private void handleRipPacket(Ethernet etherPacket, Iface inIface){
+    	// Get IP header
+		IPv4 ipPacket = (IPv4)etherPacket.getPayload();
+		UDP udpPacket = (UDP)ipPacket.getPayload();
+		System.out.println("Handle RIP packet");
+		
+		// Verify checksum
+		short origCksum = udpPacket.getChecksum();
+		udpPacket.resetChecksum();
+		byte[] serialized = udpPacket.serialize();
+		udpPacket.deserialize(serialized, 0, serialized.length);
+		short calcCksum = udpPacket.getChecksum();
+		if (origCksum != calcCksum)
+		{ return; }
+		
+		RIPv2 ripPacketPv2 = (RIPv2)udpPacket.getPayload();
+		if(ripPacketPv2.getCommand() == RIPv2.COMMAND_REQUEST){
+			//TODO Sent rip entries
+		} else if(ripPacketPv2.getCommand() == RIPv2.COMMAND_RESPONSE) {
+			//TODO Update rip table
+		}
+    }
 
 	private void handleIpPacket(Ethernet etherPacket, Iface inIface)
 	{
@@ -123,7 +161,7 @@ public class Router extends Device
 
 		// Reset checksum now that TTL is decremented
 		ipPacket.resetChecksum();
-
+		
 		// Check if packet is destined for one of router's interfaces
 		for (Iface iface : this.interfaces.values())
 		{

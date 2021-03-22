@@ -1,5 +1,6 @@
 package edu.wisc.cs.sdn.vnet;
 
+import edu.wisc.cs.sdn.vnet.rt.RipProtocol;
 import edu.wisc.cs.sdn.vnet.rt.Router;
 import edu.wisc.cs.sdn.vnet.sw.Switch;
 import edu.wisc.cs.sdn.vnet.vns.Command;
@@ -88,7 +89,11 @@ public class Main
 			// Read static route table
 			if (routeTableFile != null)
 			{ ((Router)dev).loadRouteTable(routeTableFile); }
-			
+		    else{ 
+		    	Runnable ripP = new RipProtocol(dev);
+		    	((Router) dev).setRipProtocl((RipProtocol)ripP);
+                new Thread(ripP).start();
+            }	
 			// Read static ACP cache
 			if (arpCacheFile != null)
 			{ ((Router)dev).loadArpCache(arpCacheFile); }

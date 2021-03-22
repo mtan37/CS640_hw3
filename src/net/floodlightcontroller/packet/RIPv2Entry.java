@@ -10,11 +10,12 @@ public class RIPv2Entry
     public static final short ADDRESS_FAMILY_IPv4 = 2;
 
     protected short addressFamily;
-    protected short routeTag;
-	protected int address;
+    protected short routeTag;//out of the scope of assignment 3
+	protected int address;//address of the destination router
 	protected int subnetMask;
 	protected int nextHopAddress;
-	protected int metric;
+	protected int metric;//indicating the distance to the destination. 16 = infinity
+	protected short ttl;//time to live in seconds
 
     public RIPv2Entry()
     { }
@@ -25,6 +26,7 @@ public class RIPv2Entry
         this.address = address;
         this.subnetMask = subnetMask;
         this.metric = metric;
+        this.ttl = 30;//30 seconds
     }
 
 	public String toString()
@@ -36,6 +38,25 @@ public class RIPv2Entry
                 IPv4.fromIPv4Address(this.nextHopAddress), this.metric);
 	}
 
+	public void resetTtl() {
+		this.ttl = 30;
+	}
+	
+	public short decreaseTtl(short decrement) {
+		
+		if (decrement >= ttl) {
+			ttl = 0;
+		} else {
+			ttl -= decrement;
+		}
+		
+		return this.ttl;
+	}
+	
+	public short getTtl() {
+		return this.ttl;
+	}
+	
     public short getAddressFamily()
     { return this.addressFamily; }
 
