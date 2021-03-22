@@ -50,7 +50,7 @@ public class RipProtocol implements Runnable
 	 * @param commandType
 	 * @return
 	 */
-    private Ethernet createRipPacket(Iface sourceIface, MACAddress destinationMac,
+    public static Ethernet createRipPacket(Iface sourceIface, MACAddress destinationMac,
     		int destinationIp, byte commandType){
         Ethernet packet = new Ethernet();
         packet.setSourceMACAddress(sourceIface.getMacAddress().toBytes());
@@ -85,23 +85,30 @@ public class RipProtocol implements Runnable
     public void startRip(){
     	Collection<Iface> interfaces = rt.getInterfaces().values();
     	for (Iface iface : interfaces) {
-    		//send RIP request to all interfaces
+    		// send RIP request to all interfaces
     		rt.sendPacket(createRipPacket(iface, BROADCAST_MAC, MULTICAST_RIP_IP, RIPv2.COMMAND_REQUEST), iface);
     	}
         while(true){
         	try{
         		Thread.sleep(10000);// wait for 10 seconds
         	} catch(Exception e) {}
-            //check and update route entries. Expire outdated route entries(30s)
+            // check and update route entries. Expire outdated route entries(30s)
         	synchronized (RIP_ENTRIES_LOCK) {
+        		
         		for (RIPv2Entry entry: entries) {
         			
         			if (entry.decreaseTtl((short)10) <= 0) {
-        				//TODO delete the entry
+        				// delete the entry
+        				entries.remove(entry);
         			}
         			
         		}
-            //TODO send unsolicited RIP response to all interfaces
+        		
+        		for (Iface iface : interfaces) {
+        			// send unsolicited RIP response to all interfaces
+            		rt.sendPacket(createRipPacket(iface, BROADCAST_MAC, MULTICAST_RIP_IP, RIPv2.COMMAND_RESPONSE), iface);
+            	}
+        		
         	}
         }  
     }
