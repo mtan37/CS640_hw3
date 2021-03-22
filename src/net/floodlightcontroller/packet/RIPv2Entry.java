@@ -38,15 +38,27 @@ public class RIPv2Entry
                 IPv4.fromIPv4Address(this.nextHopAddress), this.metric);
 	}
 
+	/**
+	 * reset ttl to initial value 30s
+	 */
 	public void resetTtl() {
 		this.ttl = 30;
 	}
 	
+	/**
+	 * Decrease ttl by given decrement.
+	 * @param decrement
+	 * @return
+	 */
 	public short decreaseTtl(short decrement) {
 		
 		if (decrement >= ttl) {
 			ttl = 0;
-		} else {
+		} 
+		else if (decrement < 0) {
+			return this.ttl;
+		}
+		else {
 			ttl -= decrement;
 		}
 		
