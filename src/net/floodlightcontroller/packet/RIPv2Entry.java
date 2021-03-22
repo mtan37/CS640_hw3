@@ -12,8 +12,8 @@ public class RIPv2Entry
     protected short addressFamily;
     protected short routeTag;//out of the scope of assignment 3
 	protected int address;//address of the destination router
-	protected int subnetMask;
-	protected int nextHopAddress;
+	protected int subnetMask;//subnet mask of the destination address(address)
+	protected int nextHopAddress;//0 if the address = nexthop
 	protected int metric;//indicating the distance to the destination. 16 = infinity
 	protected short ttl;//time to live in seconds
 
