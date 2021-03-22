@@ -7,6 +7,7 @@ import edu.wisc.cs.sdn.vnet.Iface;
 import net.floodlightcontroller.packet.Ethernet;
 import net.floodlightcontroller.packet.IPv4;
 import net.floodlightcontroller.packet.RIPv2;
+import net.floodlightcontroller.packet.RIPv2Entry;
 import net.floodlightcontroller.packet.UDP;
 
 /**
@@ -96,15 +97,14 @@ public class Router extends Device
 		switch(etherPacket.getEtherType())
 		{
 		case Ethernet.TYPE_IPv4:
-			if(etherPacket.getDestinationMAC().equals(inIface)) {
+			if(etherPacket.getDestinationMAC().equals(RipProtocol.BROADCAST_MAC)) {
 				IPv4 ipPacket = (IPv4)etherPacket.getPayload();
 				int dstAddr = ipPacket.getDestinationAddress();
-				if(dstAddr == IPv4.toIPv4Address("224.0.0.9") && ipPacket.getProtocol() == IPv4.PROTOCOL_UDP) {
+				if(dstAddr == RipProtocol.MULTICAST_RIP_IP && ipPacket.getProtocol() == IPv4.PROTOCOL_UDP) {
 					//This is a RIP packet
 					this.handleRipPacket(etherPacket, inIface);
 				}
 			}
-			//TODO handle incoming UDP RIP request
 			this.handleIpPacket(etherPacket, inIface);
 			break;
         }
@@ -113,7 +113,7 @@ public class Router extends Device
 	}
     
     private void handleRipPacket(Ethernet etherPacket, Iface inIface){
-    	// Get IP header
+    	// Get the UDP packet containing the rip packet
 		IPv4 ipPacket = (IPv4)etherPacket.getPayload();
 		UDP udpPacket = (UDP)ipPacket.getPayload();
 		System.out.println("Handle RIP packet");
@@ -129,9 +129,16 @@ public class Router extends Device
 		
 		RIPv2 ripPacketPv2 = (RIPv2)udpPacket.getPayload();
 		if(ripPacketPv2.getCommand() == RIPv2.COMMAND_REQUEST){
-			//TODO Sent rip entries
+			// Respond with RIP response packet
+			Ethernet packet = RipProtocol.createRipPacket(inIface, RipProtocol.BROADCAST_MAC, RipProtocol.MULTICAST_RIP_IP, RIPv2.COMMAND_RESPONSE);
+			RIPv2 ripResponse = (RIPv2) packet.getPayload().getPayload();
+			ripResponse.setEntries(ripP.getRIPTable());
+			sendPacket(packet, inIface);
 		} else if(ripPacketPv2.getCommand() == RIPv2.COMMAND_RESPONSE) {
-			//TODO Update rip table
+			// Add the new RIP entries to the table
+			for(RIPv2Entry r: ripPacketPv2.getEntries()) {
+				ripP.addRIPEntry(r);
+			}
 		}
     }
 

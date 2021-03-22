@@ -80,6 +80,33 @@ public class RipProtocol implements Runnable
     } 
 
     /**
+     * Creates a clone of the rip entries list
+     * @return the cloned list
+     */
+    public ArrayList<RIPv2Entry> getRIPTable(){
+    	synchronized (RIP_ENTRIES_LOCK) {
+    		return new ArrayList<RIPv2Entry>(entries);
+    	}
+    }
+    
+    /**
+     * Adds a RIP entry to the table
+     * @param r the RIP entry to be added
+     */
+    public void addRIPEntry(RIPv2Entry r) {
+    	synchronized (RIP_ENTRIES_LOCK) {
+    		if(entries.contains(r)) {
+    			int rIndex = entries.indexOf(r);
+    			entries.get(rIndex).resetTtl();
+    		} else {
+    			r.resetTtl();
+    			entries.add(r);
+    		}
+    		
+    	}
+    }
+    
+    /**
      * Start rip protocol. Send initial RIP requests and send unsolicited RIP response every 10 seconds
      */
     public void startRip(){
