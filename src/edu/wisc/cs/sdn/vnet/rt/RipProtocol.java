@@ -129,6 +129,7 @@ public class RipProtocol implements Runnable
         			if (entry.decreaseTtl((short)10) <= 0) {
         				// delete the entry
         				entries.remove(entry);
+        				rt.getRouteTable().remove(entry.getAddress(), entry.getSubnetMask());
         			}
         			
         		}
