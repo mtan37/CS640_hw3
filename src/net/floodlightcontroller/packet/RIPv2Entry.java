@@ -20,15 +20,27 @@ public class RIPv2Entry
     public RIPv2Entry()
     { }
 
-    public RIPv2Entry(int address, int subnetMask, int metric)
+    public RIPv2Entry(int address, int subnetMask, int nextHop, int metric)
     {
+    	this.routeTag = 0;// hard coded to 0
         this.addressFamily = ADDRESS_FAMILY_IPv4;
         this.address = address;
         this.subnetMask = subnetMask;
+        this.nextHopAddress = nextHop;
         this.metric = metric;
         this.ttl = 30;//30 seconds
     }
 
+    public RIPv2Entry(RIPv2Entry copy){ 
+    	this.routeTag = copy.routeTag;
+        this.addressFamily = copy.addressFamily;
+        this.address = copy.address;
+        this.subnetMask = copy.subnetMask;
+        this.nextHopAddress = copy.nextHopAddress;
+        this.metric = copy.metric;
+        this.ttl = copy.ttl;//30 seconds
+    }
+    
 	public String toString()
 	{
         return String.format("RIPv2Entry : {addressFamily=%d, routeTag=%d, address=%s, subnetMask=%s, nextHopAddress=%s, metric=%d}", 
