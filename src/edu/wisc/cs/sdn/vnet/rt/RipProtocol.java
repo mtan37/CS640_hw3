@@ -121,11 +121,12 @@ public class RipProtocol implements Runnable
     public boolean addRIPEntry(RIPv2Entry r, int sourceIp) {
     	synchronized (RIP_ENTRIES_LOCK) {
     		
+    		int networkNumber = r.getAddress() & r.getSubnetMask();
     		for (RIPv2Entry currEntry: entries) {
     			
+    			int currNetworkNumber = currEntry.getAddress() & currEntry.getSubnetMask();
     			// find entry with the same destination address
-    			if(currEntry.getAddress() == r.getAddress() &&
-    					currEntry.getSubnetMask() == r.getSubnetMask()) {
+    			if(networkNumber == currNetworkNumber) {
     				
     					if(r.getMetric() < currEntry.getMetric() && r.getMetric() > 0) {
     						// Better metric so it replaces the old entry

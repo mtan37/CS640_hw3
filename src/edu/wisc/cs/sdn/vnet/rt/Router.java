@@ -125,7 +125,7 @@ public class Router extends Device
 				
 				if(!ex) {
 					// Adds if it does not exist
-					routeTable.insert(r.getAddress(), r.getSubnetMask(), sourceIp, inIface);
+					routeTable.insert(r.getAddress(), sourceIp, r.getSubnetMask(), inIface);
 				}
 				
 			}
