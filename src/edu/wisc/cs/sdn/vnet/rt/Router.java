@@ -143,10 +143,8 @@ public class Router extends Device
 	 * @param inIface
 	 */
     private void handleRipPacket(IPv4 ipPacket, Iface inIface){
+    	
     	// Get the UDP packet containing the rip packet
-    	if (!(ipPacket.getPayload() instanceof UDP)) {
-    		return;
-    	}
 		UDP udpPacket = (UDP)ipPacket.getPayload();
 		System.out.println("****Handle RIP packet****");
 		
@@ -199,18 +197,22 @@ public class Router extends Device
 		for (Iface iface : this.interfaces.values())
 		{
 			if (ipPacket.getDestinationAddress() == iface.getIpAddress() ||
-					ipPacket.getDestinationAddress() == RipProtocol.MULTICAST_RIP_IP){ 	
+					ipPacket.getDestinationAddress() == RipProtocol.MULTICAST_RIP_IP){
+				
 				// this router cares about this packet
 				if(ipPacket.getProtocol() == IPv4.PROTOCOL_UDP) {
 					UDP udpPacket = (UDP) ipPacket.getPayload();
-					if(udpPacket.getDestinationPort() == UDP.RIP_PORT && udpPacket.getSourcePort() == UDP.RIP_PORT) {
-						//This is a RIP packet
+					
+					if(udpPacket.getDestinationPort() == UDP.RIP_PORT &&
+							udpPacket.getSourcePort() == UDP.RIP_PORT &&
+							ipPacket.getPayload() instanceof UDP) {
+						// This is a RIP packet
 						this.handleRipPacket(ipPacket, inIface);
 						return;
 					}
 					
 				}
-				return;
+				
 			}
 		}
 		
