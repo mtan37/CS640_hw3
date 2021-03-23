@@ -130,6 +130,8 @@ public class Router extends Device
                 }
 			}
 		}
+		//TODO remove
+		ripP.print();
 		
 	}
 	
