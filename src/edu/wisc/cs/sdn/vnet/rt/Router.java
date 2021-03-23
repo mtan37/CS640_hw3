@@ -104,11 +104,49 @@ public class Router extends Device
 		/********************************************************************/
 	}
     
-    private void handleRipPacket(Ethernet etherPacket, Iface inIface){
+	private void handleRipRequest(RIPv2 ripPacketPv2, Iface inIface, int sourceIp) {
+		System.out.println("****Handle RIP Request****");
+		// Respond with RIP response packet
+		Ethernet packet = RipProtocol.createRipPacket(inIface, inIface.getMacAddress(),
+				sourceIp, RIPv2.COMMAND_RESPONSE, ripP.getRIPTable());
+		this.sendPacket(packet, inIface);
+	}
+	
+	private void handleRipResponse(RIPv2 ripPacketPv2, Iface inIface, int sourceIp) {
+		System.out.println("****Handle RIP Response****");
+		// Add the new RIP entries to the table
+		for(RIPv2Entry r: ripPacketPv2.getEntries()) {
+			r.setMetric(r.getMetric() + 1);// assume metric to adjacent router is 1
+			boolean res = ripP.addRIPEntry(r, sourceIp);
+			
+			if (res) {
+				// update the route table
+				boolean ex = routeTable.update(r.getAddress(), r.getSubnetMask(), sourceIp, inIface);
+				
+				if(!ex) {
+					// Adds if it does not exist
+					routeTable.insert(r.getAddress(), r.getSubnetMask(), sourceIp, inIface);
+				}
+				
+			}
+			//TODO test
+			ripP.print();
+		}
+		
+	}
+	
+	/**
+	 * Handles rip packets sent from adjacent routers 
+	 * @param ipPacket
+	 * @param inIface
+	 */
+    private void handleRipPacket(IPv4 ipPacket, Iface inIface){
     	// Get the UDP packet containing the rip packet
-		IPv4 ipPacket = (IPv4)etherPacket.getPayload();
+    	if (!(ipPacket.getPayload() instanceof UDP)) {
+    		return;
+    	}
 		UDP udpPacket = (UDP)ipPacket.getPayload();
-		System.out.println("Handle RIP packet");
+		System.out.println("****Handle RIP packet****");
 		
 		// Verify checksum
 		short origCksum = udpPacket.getChecksum();
@@ -120,28 +158,11 @@ public class Router extends Device
 		{ return; }
 		
 		RIPv2 ripPacketPv2 = (RIPv2)udpPacket.getPayload();
+		int sourceIp = ipPacket.getSourceAddress();
 		if(ripPacketPv2.getCommand() == RIPv2.COMMAND_REQUEST){
-			// Respond with RIP response packet
-			Ethernet packet = RipProtocol.createRipPacket(inIface, RipProtocol.BROADCAST_MAC, RipProtocol.MULTICAST_RIP_IP, RIPv2.COMMAND_RESPONSE);
-			RIPv2 ripResponse = (RIPv2) packet.getPayload().getPayload();
-			ripResponse.setEntries(ripP.getRIPTable());
-			sendPacket(packet, inIface);
+			handleRipRequest(ripPacketPv2, inIface, sourceIp);
 		} else if(ripPacketPv2.getCommand() == RIPv2.COMMAND_RESPONSE) {
-			// Add/updates the entry for the router who sent the response
-			RIPv2Entry inRoute = new RIPv2Entry(ipPacket.getSourceAddress(), inIface.getSubnetMask(), 1);
-			ripP.addRIPEntry(inRoute);
-			// Add the new RIP entries to the table
-			for(RIPv2Entry r: ripPacketPv2.getEntries()) {
-				boolean res = ripP.addRIPEntry(r);
-				// Updates the route table if rip entry added or updated
-				if(res) {
-					boolean ex = routeTable.update(r.getAddress(), inIface.getSubnetMask(), r.getAddress(), inIface);
-					// Adds if it does not exist
-					if(!ex) {
-						routeTable.insert(r.getAddress(), inIface.getSubnetMask(), r.getAddress(), inIface);
-					}
-				}
-			}
+			handleRipResponse(ripPacketPv2, inIface, sourceIp);
 		}
     }
 
@@ -175,18 +196,20 @@ public class Router extends Device
 		// Check if packet is destined for one of router's interfaces
 		for (Iface iface : this.interfaces.values())
 		{
-			if (ipPacket.getDestinationAddress() == iface.getIpAddress())
-			{ return; }
-		}
-
-		if(ipPacket.getProtocol() == IPv4.PROTOCOL_UDP) {
-			UDP udpPacket = (UDP) ipPacket.getPayload();
-			if(udpPacket.getDestinationPort() == UDP.RIP_PORT && udpPacket.getSourcePort() == UDP.RIP_PORT) {
-				//This is a RIP packet
-				this.handleRipPacket(etherPacket, inIface);
+			if (ipPacket.getDestinationAddress() == iface.getIpAddress() ||
+					ipPacket.getDestinationAddress() == RipProtocol.MULTICAST_RIP_IP){ 	
+				// this router cares about this packet
+				if(ipPacket.getProtocol() == IPv4.PROTOCOL_UDP) {
+					UDP udpPacket = (UDP) ipPacket.getPayload();
+					if(udpPacket.getDestinationPort() == UDP.RIP_PORT && udpPacket.getSourcePort() == UDP.RIP_PORT) {
+						//This is a RIP packet
+						this.handleRipPacket(ipPacket, inIface);
+						return;
+					}
+					
+				}
 				return;
 			}
-			
 		}
 		
 		// Do route lookup and forward

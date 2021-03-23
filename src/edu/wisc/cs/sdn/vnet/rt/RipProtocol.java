@@ -43,6 +43,25 @@ public class RipProtocol implements Runnable
 	}
 	
 	/**
+	 * Print content of the rip entries for debugging purposes
+	 */
+	public void print() {
+		synchronized (RIP_ENTRIES_LOCK) {
+			System.out.println("****RIP entries****");
+			int i = 1;
+			for (RIPv2Entry entry: this.entries) {
+				System.out.format("Entry #%d\n", i);
+				System.out.format("Address:  %s\n", IPv4.fromIPv4Address(entry.getAddress()));
+				System.out.format("Subnet Mask:  %s\n", IPv4.fromIPv4Address(entry.getSubnetMask()));
+				System.out.format("Next hop:  %s\n", IPv4.fromIPv4Address(entry.getNextHopAddress()));
+				System.out.format("metric:  %d\n", entry.getMetric());
+				System.out.format("ttl:  %d\n", entry.getTtl());
+				i++;
+			}
+		}
+	}
+	
+	/**
 	 * Rip request is encapsulated in various other structures in the following order: rip->UDP->IPv4->Ethernet
 	 * @param sourceIface
 	 * @param destinationMac
@@ -51,7 +70,7 @@ public class RipProtocol implements Runnable
 	 * @return
 	 */
     public static Ethernet createRipPacket(Iface sourceIface, MACAddress destinationMac,
-    		int destinationIp, byte commandType){
+    		int destinationIp, byte commandType, List<RIPv2Entry> entries){
         Ethernet packet = new Ethernet();
         packet.setSourceMACAddress(sourceIface.getMacAddress().toBytes());
         packet.setDestinationMACAddress(destinationMac.toBytes());
@@ -75,10 +94,11 @@ public class RipProtocol implements Runnable
         udpPacket.setPayload(ripRequest);
         
         ripRequest.setCommand(commandType);
+        ripRequest.setEntries(entries);
         
         return packet;
     } 
-
+    
     /**
      * Creates a clone of the rip entries list
      * @return the cloned list
@@ -90,31 +110,35 @@ public class RipProtocol implements Runnable
     }
     
     /**
-     * Adds a RIP entry to the table
+     * Adds a RIP entry to the table 
      * @param r the RIP entry to be added
-     * @return true if entry added/updated, false if already existing
+     * @return true if entry added/changed(besides ttl update), false if entry with better metric already exists or only ttl update is done
      */
-    public boolean addRIPEntry(RIPv2Entry r) {
-    	//TODO Update TTL properly
-    	r.setMetric(r.getMetric() + 1);
-    	r.resetTtl();
+    public boolean addRIPEntry(RIPv2Entry r, int sourceIp) {
     	synchronized (RIP_ENTRIES_LOCK) {
-    		for(int i=0; i<entries.size(); i++) {
-    			RIPv2Entry curr = entries.get(i);
-    			if(curr.equals(r)) {
-    				// Identical entry already exists
-    				return false;
-    			}
-    			if(curr.getAddress() == r.getAddress()) {
-    				if(curr.getSubnetMask() == r.getSubnetMask()) {
-    					if(r.getMetric()< curr.getMetric()) {
+    		
+    		for (RIPv2Entry currEntry: entries) {
+    			
+    			// find entry with the same destination address
+    			if(currEntry.getAddress() == r.getAddress() &&
+    					currEntry.getSubnetMask() == r.getSubnetMask()) {
+    				
+    					if(r.getMetric() < currEntry.getMetric() && r.getMetric() > 0) {
     						// Better metric so it replaces the old entry
-    						entries.remove(i);
+    						entries.remove(currEntry);
     						entries.add(r);
     						return true;
+    					} else if(r.getMetric() == currEntry.getMetric() && currEntry.getNextHopAddress() == sourceIp) {
+    						//reset ttl of the entry
+    						currEntry.resetTtl();
+    						return false;
     					}
-    				} 
-    			}
+    					else {
+    						return false;//nothing is updated
+    					}
+    					
+    			} 
+    			
     		}
     		// No existing entry found
     		entries.add(r);
@@ -127,9 +151,17 @@ public class RipProtocol implements Runnable
      */
     public void startRip(){
     	Collection<Iface> interfaces = rt.getInterfaces().values();
+    	
+    	for (Iface iface : interfaces) {
+    		// add metric info of all interfaces of this router to the rip entries and router table
+    		RIPv2Entry entry = new RIPv2Entry(iface.getIpAddress(), iface.getSubnetMask(), 0, 0);
+    		this.addRIPEntry(entry, 0);
+    	}
+    	
     	for (Iface iface : interfaces) {
     		// send RIP request to all interfaces
-    		rt.sendPacket(createRipPacket(iface, BROADCAST_MAC, MULTICAST_RIP_IP, RIPv2.COMMAND_REQUEST), iface);
+    		rt.sendPacket(createRipPacket(iface, BROADCAST_MAC, MULTICAST_RIP_IP,
+    				RIPv2.COMMAND_REQUEST, this.getRIPTable()), iface);
     	}
         while(true){
         	try{
@@ -149,17 +181,15 @@ public class RipProtocol implements Runnable
         		
         		for (Iface iface : interfaces) {
         			// send unsolicited RIP response to all interfaces
-        			Ethernet packet = createRipPacket(iface, BROADCAST_MAC, MULTICAST_RIP_IP, RIPv2.COMMAND_RESPONSE);
-        			RIPv2 ripPacket = (RIPv2) packet.getPayload().getPayload().getPayload();
-        			ArrayList<RIPv2Entry> cloneList = new ArrayList<RIPv2Entry>();
-        			for (RIPv2Entry i: entries) {
-        				cloneList.add(i);
-        			}
-        			ripPacket.setEntries(cloneList);
+        			Ethernet packet = 
+        					createRipPacket(iface, BROADCAST_MAC, MULTICAST_RIP_IP,
+        							RIPv2.COMMAND_RESPONSE, new ArrayList<RIPv2Entry>(entries));
             		rt.sendPacket(packet, iface);
             	}
         		
         	}
+			//TODO test
+			this.print();
         }  
     }
 }
