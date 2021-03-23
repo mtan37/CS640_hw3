@@ -173,9 +173,11 @@ public class RipProtocol implements Runnable
         		Thread.sleep(10000);// wait for 10 seconds
         	} catch(Exception e) {}
             // check and update route entries. Expire outdated route entries(30s)
+    		
         	synchronized (RIP_ENTRIES_LOCK) {
         		
-        		for (RIPv2Entry entry: entries) {
+        		ArrayList<RIPv2Entry> entriesCopy = new ArrayList<RIPv2Entry>(entries);// entries are not deep copied
+        		for (RIPv2Entry entry: entriesCopy) {
         			if (entry.decreaseTtl((short)10) <= 0) {
         				// delete the entry
         				entries.remove(entry);
