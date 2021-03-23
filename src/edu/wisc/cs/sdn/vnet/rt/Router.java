@@ -105,7 +105,7 @@ public class Router extends Device
 	}
     
 	private void handleRipRequest(RIPv2 ripPacketPv2, Iface inIface, int sourceIp) {
-		System.out.println("****Handle RIP Request****");
+		System.out.format("****Handle RIP Request comming from %s ****\n", IPv4.fromIPv4Address(sourceIp));
 		// Respond with RIP response packet
 		Ethernet packet = RipProtocol.createRipPacket(inIface, inIface.getMacAddress(),
 				sourceIp, RIPv2.COMMAND_RESPONSE, ripP.getRIPTableCopy());
@@ -113,11 +113,13 @@ public class Router extends Device
 	}
 	
 	private void handleRipResponse(RIPv2 ripPacketPv2, Iface inIface, int sourceIp) {
-		System.out.println("****Handle RIP Response****");
+		System.out.format("****Handle RIP Response comming from %s ****\n", IPv4.fromIPv4Address(sourceIp));
 		// Add the new RIP entries to the table
 		for(RIPv2Entry r: ripPacketPv2.getEntries()) {
 			r.setMetric(r.getMetric() + 1);// assume metric to adjacent router is 1
-			boolean res = ripP.addRIPEntry(r, sourceIp);
+			r.setNextHopAddress(sourceIp);
+            r.resetTtl();
+            boolean res = ripP.addRIPEntry(r);
 			
 			if (res) {
 				// update the route table
@@ -126,12 +128,8 @@ public class Router extends Device
 				if(!ex) {
 					// Adds if it does not exist
 					routeTable.insert(r.getAddress(), sourceIp, r.getSubnetMask(), inIface);
-				}
+                }
 				
-			}
-			synchronized (RipProtocol.RIP_ENTRIES_LOCK) {
-			//TODO test
-			ripP.print();
 			}
 		}
 		
@@ -225,7 +223,7 @@ public class Router extends Device
 		// Make sure it's an IP packet
 		if (etherPacket.getEtherType() != Ethernet.TYPE_IPv4)
 		{ return; }
-		System.out.println("Forward IP packet");
+		System.out.format("***Forward ip packet to %s ****\n", IPv4.fromIPv4Address(inIface.getIpAddress()));
 
 		// Get IP header
 		IPv4 ipPacket = (IPv4)etherPacket.getPayload();

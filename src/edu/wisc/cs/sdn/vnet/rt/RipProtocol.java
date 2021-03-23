@@ -23,6 +23,7 @@ public class RipProtocol implements Runnable
 	public static int MULTICAST_RIP_IP = IPv4.toIPv4Address("224.0.0.9");
 	public static MACAddress BROADCAST_MAC = MACAddress.valueOf("FF:FF:FF:FF:FF:FF");
 	public static final Object RIP_ENTRIES_LOCK = new Object();//use this lock whenever you access and modify the entries
+	public static final Object RIP_LOCK = new Object();//use this lock whenever you do rip operation
 	
 	private List<RIPv2Entry> entries;
 	private Router rt;
@@ -118,7 +119,7 @@ public class RipProtocol implements Runnable
      * @param r the RIP entry to be added
      * @return true if entry added/changed(besides ttl update), false if entry with better metric already exists or only ttl update is done
      */
-    public boolean addRIPEntry(RIPv2Entry r, int sourceIp) {
+    public boolean addRIPEntry(RIPv2Entry r) {
     	synchronized (RIP_ENTRIES_LOCK) {
     		
     		int networkNumber = r.getAddress() & r.getSubnetMask();
@@ -133,7 +134,7 @@ public class RipProtocol implements Runnable
     						entries.remove(currEntry);
     						entries.add(r);
     						return true;
-    					} else if(r.getMetric() == currEntry.getMetric() && currEntry.getNextHopAddress() == sourceIp) {
+    					} else if(r.getMetric() == currEntry.getMetric() && currEntry.getNextHopAddress() == r.getNextHopAddress()) {
     						//reset ttl of the entry
     						currEntry.resetTtl();
     						return false;
@@ -150,18 +151,32 @@ public class RipProtocol implements Runnable
     		return true;
     	}
     }
-    
+   
     /**
-     * Start rip protocol. Send initial RIP requests and send unsolicited RIP response every 10 seconds
+     * Renew all the entries of interfaces
      */
-    public void startRip(){
+    private void refreshIfaceRecords(){
     	Collection<Iface> interfaces = rt.getInterfaces().values();
     	
     	for (Iface iface : interfaces) {
     		// add metric info of all interfaces of this router to the rip entries and router table
     		RIPv2Entry entry = new RIPv2Entry(iface.getIpAddress(), iface.getSubnetMask(), 0, 0);
-    		this.addRIPEntry(entry, 0);
-    	}
+    		this.addRIPEntry(entry);
+            boolean update = rt.getRouteTable().update(iface.getIpAddress(), iface.getSubnetMask(), 0, iface);
+            if (!update){
+                rt.getRouteTable().insert(iface.getIpAddress(), 0, iface.getSubnetMask(), iface);
+    	    }
+        }
+
+    }
+ 
+    /**
+     * Start rip protocol. Send initial RIP requests and send unsolicited RIP response every 10 seconds
+     */
+    public void startRip(){
+
+        refreshIfaceRecords();
+    	Collection<Iface> interfaces = rt.getInterfaces().values();
     	
     	for (Iface iface : interfaces) {
     		// send RIP request to all interfaces
@@ -175,8 +190,10 @@ public class RipProtocol implements Runnable
         	} catch(Exception e) {}
             // check and update route entries. Expire outdated route entries(30s)
     		
-        	synchronized (RIP_ENTRIES_LOCK) {
-        		
+            refreshIfaceRecords();
+        	
+            synchronized (RIP_ENTRIES_LOCK) {
+       
         		ArrayList<RIPv2Entry> entriesCopy = new ArrayList<RIPv2Entry>(entries);// entries are not deep copied
         		for (RIPv2Entry entry: entriesCopy) {
         			if (entry.decreaseTtl((short)10) <= 0) {
@@ -186,18 +203,16 @@ public class RipProtocol implements Runnable
         			}
         			
         		}
-        	}
         	
-    		for (Iface iface : interfaces) {
-    			// send unsolicited RIP response to all interfaces
-    			Ethernet packet = 
-    					createRipPacket(iface, BROADCAST_MAC, MULTICAST_RIP_IP,
-    							RIPv2.COMMAND_RESPONSE, this.getRIPTableCopy());
-        		rt.sendPacket(packet, iface);
-        	}
-        
-			//TODO test
-			this.print();
+            }
+        	
+            for (Iface iface : interfaces) {
+                // send unsolicited RIP response to all interfaces
+                Ethernet packet = 
+                        createRipPacket(iface, BROADCAST_MAC, MULTICAST_RIP_IP,
+                                RIPv2.COMMAND_RESPONSE, this.getRIPTableCopy());
+                rt.sendPacket(packet, iface);
+            }
         }  
     }
 }
