@@ -121,31 +121,28 @@ public class RipProtocol implements Runnable
      */
     public boolean addRIPEntry(RIPv2Entry r) {
     	synchronized (RIP_ENTRIES_LOCK) {
-    		
     		int networkNumber = r.getAddress() & r.getSubnetMask();
+    		
     		for (RIPv2Entry currEntry: entries) {
-    			
     			int currNetworkNumber = currEntry.getAddress() & currEntry.getSubnetMask();
-    			// find entry with the same destination address
+    			
     			if(networkNumber == currNetworkNumber) {
-    				
+        			// find entry with the same destination address
     					if(r.getMetric() < currEntry.getMetric() && r.getMetric() > 0) {
     						// Better metric so it replaces the old entry
     						entries.remove(currEntry);
     						entries.add(r);
     						return true;
     					} else if(r.getMetric() == currEntry.getMetric() && currEntry.getNextHopAddress() == r.getNextHopAddress()) {
-    						//reset ttl of the entry
+    						// reset ttl of the entry
     						currEntry.resetTtl();
     						return false;
-    					}
-    					else {
-    						return false;//nothing is updated
-    					}
+    					} else { return false; }// nothing is updated
     					
     			} 
     			
     		}
+    		
     		// No existing entry found
     		entries.add(r);
     		return true;
@@ -185,25 +182,24 @@ public class RipProtocol implements Runnable
     	}
     	
         while(true){
+        	
         	try{
         		Thread.sleep(10000);// wait for 10 seconds
         	} catch(Exception e) {}
-            // check and update route entries. Expire outdated route entries(30s)
-    		
-            refreshIfaceRecords();
         	
+            // check and update route entries. Expire outdated route entries(30s)
+            refreshIfaceRecords(); 	
             synchronized (RIP_ENTRIES_LOCK) {
-       
-        		ArrayList<RIPv2Entry> entriesCopy = new ArrayList<RIPv2Entry>(entries);// entries are not deep copied
+        		ArrayList<RIPv2Entry> entriesCopy = new ArrayList<RIPv2Entry>(entries);// entries are not deep copies
+        		
         		for (RIPv2Entry entry: entriesCopy) {
         			if (entry.decreaseTtl((short)10) <= 0) {
         				// delete the entry
         				entries.remove(entry);
         				rt.getRouteTable().remove(entry.getAddress(), entry.getSubnetMask());
         			}
-        			
         		}
-        	
+        		
             }
         	
             for (Iface iface : interfaces) {
@@ -213,6 +209,7 @@ public class RipProtocol implements Runnable
                                 RIPv2.COMMAND_RESPONSE, this.getRIPTableCopy());
                 rt.sendPacket(packet, iface);
             }
+            
         }  
     }
 }

@@ -124,12 +124,10 @@ public class Router extends Device
 			if (res) {
 				// update the route table
 				boolean ex = routeTable.update(r.getAddress(), r.getSubnetMask(), sourceIp, inIface);
-				
 				if(!ex) {
 					// Adds if it does not exist
 					routeTable.insert(r.getAddress(), sourceIp, r.getSubnetMask(), inIface);
                 }
-				
 			}
 		}
 		
@@ -157,11 +155,13 @@ public class Router extends Device
 		
 		RIPv2 ripPacketPv2 = (RIPv2)udpPacket.getPayload();
 		int sourceIp = ipPacket.getSourceAddress();
+		
 		if(ripPacketPv2.getCommand() == RIPv2.COMMAND_REQUEST){
 			handleRipRequest(ripPacketPv2, inIface, sourceIp);
 		} else if(ripPacketPv2.getCommand() == RIPv2.COMMAND_RESPONSE) {
 			handleRipResponse(ripPacketPv2, inIface, sourceIp);
 		}
+		
     }
 
 	private void handleIpPacket(Ethernet etherPacket, Iface inIface)
@@ -194,6 +194,7 @@ public class Router extends Device
 		// Check if packet is destined for one of router's interfaces
 		for (Iface iface : this.interfaces.values())
 		{
+			
 			if (ipPacket.getDestinationAddress() == iface.getIpAddress() ||
 					ipPacket.getDestinationAddress() == RipProtocol.MULTICAST_RIP_IP){
 				
@@ -212,6 +213,7 @@ public class Router extends Device
 				}
 				
 			}
+			
 		}
 		
 		// Do route lookup and forward
