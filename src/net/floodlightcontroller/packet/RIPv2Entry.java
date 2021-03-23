@@ -31,6 +31,16 @@ public class RIPv2Entry
         this.ttl = 30;//30 seconds
     }
 
+    public RIPv2Entry(RIPv2Entry copy){ 
+    	this.routeTag = copy.routeTag;
+        this.addressFamily = copy.addressFamily;
+        this.address = copy.address;
+        this.subnetMask = copy.subnetMask;
+        this.nextHopAddress = copy.nextHopAddress;
+        this.metric = copy.metric;
+        this.ttl = copy.ttl;//30 seconds
+    }
+    
 	public String toString()
 	{
         return String.format("RIPv2Entry : {addressFamily=%d, routeTag=%d, address=%s, subnetMask=%s, nextHopAddress=%s, metric=%d}", 

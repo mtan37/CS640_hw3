@@ -100,13 +100,17 @@ public class RipProtocol implements Runnable
     } 
     
     /**
-     * Creates a clone of the rip entries list
+     * Creates a deep clone of the rip entries list
      * @return the cloned list
      */
-    public ArrayList<RIPv2Entry> getRIPTable(){
+    public ArrayList<RIPv2Entry> getRIPTableCopy(){
+    	ArrayList<RIPv2Entry> clone = new ArrayList<RIPv2Entry>();
     	synchronized (RIP_ENTRIES_LOCK) {
-    		return new ArrayList<RIPv2Entry>(entries);
+    		for (RIPv2Entry entry: entries) {
+    			clone.add(new RIPv2Entry(entry));
+    		}
     	}
+    	return clone;
     }
     
     /**
@@ -161,8 +165,9 @@ public class RipProtocol implements Runnable
     	for (Iface iface : interfaces) {
     		// send RIP request to all interfaces
     		rt.sendPacket(createRipPacket(iface, BROADCAST_MAC, MULTICAST_RIP_IP,
-    				RIPv2.COMMAND_REQUEST, this.getRIPTable()), iface);
+    				RIPv2.COMMAND_REQUEST, this.getRIPTableCopy()), iface);
     	}
+    	
         while(true){
         	try{
         		Thread.sleep(10000);// wait for 10 seconds
@@ -178,16 +183,16 @@ public class RipProtocol implements Runnable
         			}
         			
         		}
-        		
-        		for (Iface iface : interfaces) {
-        			// send unsolicited RIP response to all interfaces
-        			Ethernet packet = 
-        					createRipPacket(iface, BROADCAST_MAC, MULTICAST_RIP_IP,
-        							RIPv2.COMMAND_RESPONSE, new ArrayList<RIPv2Entry>(entries));
-            		rt.sendPacket(packet, iface);
-            	}
-        		
         	}
+        	
+    		for (Iface iface : interfaces) {
+    			// send unsolicited RIP response to all interfaces
+    			Ethernet packet = 
+    					createRipPacket(iface, BROADCAST_MAC, MULTICAST_RIP_IP,
+    							RIPv2.COMMAND_RESPONSE, this.getRIPTableCopy());
+        		rt.sendPacket(packet, iface);
+        	}
+        
 			//TODO test
 			this.print();
         }  

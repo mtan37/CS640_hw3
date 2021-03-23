@@ -108,7 +108,7 @@ public class Router extends Device
 		System.out.println("****Handle RIP Request****");
 		// Respond with RIP response packet
 		Ethernet packet = RipProtocol.createRipPacket(inIface, inIface.getMacAddress(),
-				sourceIp, RIPv2.COMMAND_RESPONSE, ripP.getRIPTable());
+				sourceIp, RIPv2.COMMAND_RESPONSE, ripP.getRIPTableCopy());
 		this.sendPacket(packet, inIface);
 	}
 	
@@ -129,8 +129,10 @@ public class Router extends Device
 				}
 				
 			}
+			synchronized (RipProtocol.RIP_ENTRIES_LOCK) {
 			//TODO test
 			ripP.print();
+			}
 		}
 		
 	}
