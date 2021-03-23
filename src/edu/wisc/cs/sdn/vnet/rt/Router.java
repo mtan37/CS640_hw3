@@ -127,9 +127,20 @@ public class Router extends Device
 			ripResponse.setEntries(ripP.getRIPTable());
 			sendPacket(packet, inIface);
 		} else if(ripPacketPv2.getCommand() == RIPv2.COMMAND_RESPONSE) {
+			// Add/updates the entry for the router who sent the response
+			RIPv2Entry inRoute = new RIPv2Entry(ipPacket.getSourceAddress(), inIface.getSubnetMask(), 1);
+			ripP.addRIPEntry(inRoute);
 			// Add the new RIP entries to the table
 			for(RIPv2Entry r: ripPacketPv2.getEntries()) {
-				ripP.addRIPEntry(r);
+				boolean res = ripP.addRIPEntry(r);
+				// Updates the route table if rip entry added or updated
+				if(res) {
+					boolean ex = routeTable.update(r.getAddress(), inIface.getSubnetMask(), r.getAddress(), inIface);
+					// Adds if it does not exist
+					if(!ex) {
+						routeTable.insert(r.getAddress(), inIface.getSubnetMask(), r.getAddress(), inIface);
+					}
+				}
 			}
 		}
     }
@@ -157,17 +168,6 @@ public class Router extends Device
 		ipPacket.setTtl((byte)(ipPacket.getTtl()-1));
 		if (0 == ipPacket.getTtl())
 		{ return; }
-
-		
-		if(ipPacket.getProtocol() == IPv4.PROTOCOL_UDP) {
-			UDP udpPacket = (UDP) ipPacket.getPayload();
-			if(udpPacket.getDestinationPort() == UDP.RIP_PORT && udpPacket.getSourcePort() == UDP.RIP_PORT) {
-				//This is a RIP packet
-				this.handleRipPacket(etherPacket, inIface);
-				return;
-			}
-			
-		}
 		
 		// Reset checksum now that TTL is decremented
 		ipPacket.resetChecksum();
@@ -179,6 +179,16 @@ public class Router extends Device
 			{ return; }
 		}
 
+		if(ipPacket.getProtocol() == IPv4.PROTOCOL_UDP) {
+			UDP udpPacket = (UDP) ipPacket.getPayload();
+			if(udpPacket.getDestinationPort() == UDP.RIP_PORT && udpPacket.getSourcePort() == UDP.RIP_PORT) {
+				//This is a RIP packet
+				this.handleRipPacket(etherPacket, inIface);
+				return;
+			}
+			
+		}
+		
 		// Do route lookup and forward
 		this.forwardIpPacket(etherPacket, inIface);
 	}

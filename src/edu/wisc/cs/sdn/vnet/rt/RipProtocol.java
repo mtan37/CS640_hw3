@@ -92,19 +92,33 @@ public class RipProtocol implements Runnable
     /**
      * Adds a RIP entry to the table
      * @param r the RIP entry to be added
+     * @return true if entry added/updated, false if already existing
      */
-    public void addRIPEntry(RIPv2Entry r) {
-    	//TODO More robust contains check
-    	//TODO Add to route table?
+    public boolean addRIPEntry(RIPv2Entry r) {
+    	//TODO Update TTL properly
+    	r.setMetric(r.getMetric() + 1);
+    	r.resetTtl();
     	synchronized (RIP_ENTRIES_LOCK) {
-    		if(entries.contains(r)) {
-    			int rIndex = entries.indexOf(r);
-    			entries.get(rIndex).resetTtl();
-    		} else {
-    			r.resetTtl();
-    			entries.add(r);
+    		for(int i=0; i<entries.size(); i++) {
+    			RIPv2Entry curr = entries.get(i);
+    			if(curr.equals(r)) {
+    				// Identical entry already exists
+    				return false;
+    			}
+    			if(curr.getAddress() == r.getAddress()) {
+    				if(curr.getSubnetMask() == r.getSubnetMask()) {
+    					if(r.getMetric()< curr.getMetric()) {
+    						// Better metric so it replaces the old entry
+    						entries.remove(i);
+    						entries.add(r);
+    						return true;
+    					}
+    				} 
+    			}
     		}
-    		
+    		// No existing entry found
+    		entries.add(r);
+    		return true;
     	}
     }
     
@@ -125,7 +139,6 @@ public class RipProtocol implements Runnable
         	synchronized (RIP_ENTRIES_LOCK) {
         		
         		for (RIPv2Entry entry: entries) {
-        			
         			if (entry.decreaseTtl((short)10) <= 0) {
         				// delete the entry
         				entries.remove(entry);
